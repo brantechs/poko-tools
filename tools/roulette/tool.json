@@ -1,0 +1,10 @@
+{
+  "name": "roulette",
+  "displayName": "ぽこルーレット",
+  "version": "0.1.0",
+  "obs": {
+    "width": 1920,
+    "height": 1080,
+    "transparent": true
+  }
+}

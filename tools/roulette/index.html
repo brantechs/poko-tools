@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ぽこルーレット</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage" class="stage">
+
+  <!-- ===== 配信に映す領域 ===== -->
+  <section class="wheel-area" aria-label="ルーレット">
+    <div id="spinCount" class="spin-count" hidden></div>
+    <svg class="pointer" viewBox="0 0 60 110" aria-hidden="true">
+      <polygon points="30,3 57,55 30,107 3,55" />
+      <polygon class="pointer-shine" points="30,14 44,55 30,55" />
+    </svg>
+    <canvas id="wheel" class="wheel" width="640" height="640"></canvas>
+    <div id="winner" class="winner" hidden>
+      <div class="winner-label">おめでとう!</div>
+      <div id="winnerName" class="winner-name"></div>
+    </div>
+  </section>
+
+  <section class="winners" aria-label="当たった人の一覧">
+    <h2 class="winners-title">当たった人の一覧</h2>
+    <ol id="winnerList" class="winner-list"></ol>
+  </section>
+
+  <!-- ===== 操作パネル(OBSではクロップで隠す) ===== -->
+  <section class="control" aria-label="操作パネル">
+    <header class="control-head">
+      <span>操作パネル</span>
+      <span class="control-note">OBSではクロップで隠してね</span>
+    </header>
+
+    <div class="control-body">
+      <div class="entries">
+        <div class="entries-head">
+          <span>名前 <b id="entryCount">0</b>人</span>
+          <button id="clearEntries" class="btn-small" type="button">全消去</button>
+        </div>
+        <ol id="entryList" class="entry-list"></ol>
+      </div>
+
+      <div class="options">
+        <label><input type="checkbox" id="optRemoveOnWin"> 当たったら消す</label>
+        <label><input type="checkbox" id="optNoRepeat"> 連続で同じ人に当たらない</label>
+        <label><input type="checkbox" id="optShowCount"> 何回回したかを表示</label>
+        <label><input type="checkbox" id="optSound"> 効果音</label>
+      </div>
+    </div>
+
+    <div class="add">
+      <textarea id="addInput" rows="3" placeholder="名前を入力(改行区切りでまとめて貼り付けOK)"></textarea>
+      <button id="addBtn" class="btn btn-add" type="button">追加</button>
+    </div>
+
+    <div class="actions">
+      <button id="startBtn" class="btn btn-start" type="button">START</button>
+      <button id="resetBtn" class="btn btn-reset" type="button">結果クリア</button>
+    </div>
+
+    <footer id="version" class="version"></footer>
+  </section>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
