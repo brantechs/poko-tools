@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.1.0"; // tool.json と揃える
+  var VERSION = "0.2.0"; // tool.json と揃える
   var STORAGE_KEY = "poko-tools.roulette.v1";
   var STAGE_W = 1920;
   var STAGE_H = 1080;
@@ -14,6 +14,15 @@
   var INK = "#3b2b45";
   var FONT = '"M PLUS Rounded 1c", "Kosugi Maru", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Meiryo", system-ui, sans-serif';
   var MAX_NAME_LENGTH = 40;
+  // 針のプルプル: 項目の境目が針を通るたびに弾かれ、すぐ減衰する
+  // 最後の境目は停止の0.7秒以上前に通る(offset>=0.15)ので、止まる瞬間には揺れが収まっている
+  var KICK_DEG = 5;
+  var KICK_DECAY_MS = 80;
+  var KICK_PERIOD_MS = 160;
+  var KICK_FULL_SPEED = 6;   // rad/s。これより遅いと弾く強さを弱める
+  var KICK_MIN_RATIO = 0.3;
+  // 中心の飾りと重ならないよう、盤の中の文字を上にずらす量(半径比)
+  var OFF_CENTER_Y = 0.35;
 
   // ---------- state ----------
 
@@ -23,7 +32,7 @@
     winners: [],   // {n, name}
     spinCount: 0,
     lastWinnerId: null,
-    options: { removeOnWin: false, noRepeat: false, showCount: false, sound: true }
+    options: { removeOnWin: false, noRepeat: false, showCount: false, sound: true, fanfare: true, congrats: true }
   };
 
   var rotation = 0;
@@ -82,8 +91,10 @@
     stage: $("stage"),
     wheelArea: document.querySelector(".wheel-area"),
     canvas: $("wheel"),
+    pointer: document.querySelector(".pointer"),
     spinCount: $("spinCount"),
     winner: $("winner"),
+    winnerLabel: document.querySelector(".winner-label"),
     winnerName: $("winnerName"),
     winnerList: $("winnerList"),
     entryList: $("entryList"),
@@ -98,7 +109,9 @@
       removeOnWin: $("optRemoveOnWin"),
       noRepeat: $("optNoRepeat"),
       showCount: $("optShowCount"),
-      sound: $("optSound")
+      sound: $("optSound"),
+      fanfare: $("optFanfare"),
+      congrats: $("optCongrats")
     }
   };
   var ctx = el.canvas.getContext("2d");
@@ -171,7 +184,8 @@
       ctx.font = "800 " + 36 * k + "px " + FONT;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("名前を追加してね", c, c);
+      // 中心の飾りと重ならないよう上にずらす
+      ctx.fillText("名前を追加してね", c, c - r * OFF_CENTER_Y);
     } else {
       var seg = TWO_PI / n;
       for (var i = 0; i < n; i++) {
@@ -204,7 +218,7 @@
         ctx.rotate(n === 1 ? 0 : mid);
         // 1人だけの時は中心の飾りと重ならないよう上に置く
         var x = n === 1 ? ctx.measureText(label).width / 2 : r * 0.9;
-        var y = n === 1 ? -r * 0.4 : 0;
+        var y = n === 1 ? -r * OFF_CENTER_Y : 0;
         ctx.lineWidth = fontSize * 0.28;
         ctx.strokeStyle = "#ffffff";
         ctx.strokeText(label, x, y);
@@ -268,7 +282,7 @@
   }
 
   function playWin() {
-    if (!state.options.sound) return;
+    if (!state.options.sound || !state.options.fanfare) return;
     [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) {
       tone(f, i * 0.11, 0.35, "triangle", 0.22);
     });
@@ -288,6 +302,35 @@
 
   function easeOutQuart(t) {
     return 1 - Math.pow(1 - t, 4);
+  }
+
+  // ---------- pointer ----------
+
+  var kickAt = 0;
+  var kickAmp = 0;
+  var kickRunning = false;
+
+  // 境目に弾かれた時に呼ぶ。speed: 盤の角速度(rad/s)
+  function kickPointer(speed) {
+    kickAt = performance.now();
+    kickAmp = KICK_DEG * Math.max(KICK_MIN_RATIO, Math.min(1, speed / KICK_FULL_SPEED));
+    if (!kickRunning) {
+      kickRunning = true;
+      requestAnimationFrame(animatePointer);
+    }
+  }
+
+  // 盤は時計回り = 上端は右へ動くので、針先は右(マイナス方向)へ弾かれて減衰振動する
+  function animatePointer(now) {
+    var dt = Math.max(0, now - kickAt);
+    if (dt > KICK_DECAY_MS * 6) {
+      kickRunning = false;
+      el.pointer.style.transform = "";
+      return;
+    }
+    var deg = -kickAmp * Math.exp(-dt / KICK_DECAY_MS) * Math.cos((dt / KICK_PERIOD_MS) * TWO_PI);
+    el.pointer.style.transform = "rotate(" + deg.toFixed(2) + "deg)";
+    requestAnimationFrame(animatePointer);
   }
 
   function start() {
@@ -323,6 +366,7 @@
       if (idx !== lastIdx) {
         lastIdx = idx;
         playTick();
+        kickPointer((delta * 4 * Math.pow(1 - t, 3)) / (duration / 1000)); // easeOutQuart の微分
       }
       if (t < 1) {
         requestAnimationFrame(frame);
@@ -520,6 +564,7 @@
     el.spinCount.textContent = state.spinCount + "回目";
 
     for (var k in el.opt) el.opt[k].checked = state.options[k];
+    el.winnerLabel.hidden = !state.options.congrats; // 当選表示中の切替にもすぐ反映
 
     el.startBtn.disabled = spinning || n === 0;
     el.addBtn.disabled = spinning;
