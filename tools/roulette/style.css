@@ -65,11 +65,11 @@ body.preview { background: var(--poko-preview-bg); }
   height: 110px;
   z-index: 2;
   filter: drop-shadow(0 3px 0 rgba(59, 43, 69, .35));
+  transform-origin: 50% 10%; /* 回転中の揺れは app.js の kickPointer() で付ける */
+  will-change: transform;
 }
 .pointer polygon { fill: var(--poko-yellow); stroke: var(--poko-ink); stroke-width: 4; stroke-linejoin: round; }
 .pointer .pointer-shine { fill: #fff8c9; stroke: none; }
-.wheel-area.spinning .pointer { animation: pointer-wiggle .12s ease-in-out infinite alternate; transform-origin: 50% 10%; }
-@keyframes pointer-wiggle { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
 
 .spin-count {
   position: absolute;
