@@ -6,4 +6,4 @@
 | `requirements/<tool>.md` | ツールごとの仕様(実装の入力) |
 | `ux/<tool>/` | ワイヤーフレーム画像 |
 | `development/` | 実装規約 |
-| `release/` | BOOTH 出品チェックリスト |
+| `release/` | BOOTH 出品チェックリスト、GitHub Pages 公開 |
