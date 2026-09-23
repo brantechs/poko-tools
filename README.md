@@ -24,6 +24,11 @@ scripts/package-tool.sh roulette
 
 `dist/` に出力される(git管理外)。
 
+## Web 公開
+
+`main` のルートを GitHub Pages で公開している(https://brantechs.github.io/poko-tools/)。
+main へのマージ = 公開。設定と OBS での使い方は `docs/release/github-pages.md`。
+
 ## 開発ルール
 
 `AGENTS.md` と `docs/development/conventions.md` を必ず読むこと。

@@ -3,6 +3,7 @@
 ## 1. file:// で動くこと
 
 購入者は zip を解凍して `index.html` を直接開く、または OBS のブラウザソースで「ローカルファイル」として読み込む。
+(GitHub Pages の https URL からも読み込まれる。`docs/release/github-pages.md`。file:// で動けば https でも動くので、基準は file:// のまま)
 このとき origin が `null` になるため、以下は **動かない**。
 
 | NG | 代わり |
