@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2.0"; // tool.json と揃える
+  var VERSION = "0.3.0"; // tool.json と揃える
   var STORAGE_KEY = "poko-tools.roulette.v1";
   var STAGE_W = 1920;
   var STAGE_H = 1080;
@@ -15,12 +15,19 @@
   var FONT = '"M PLUS Rounded 1c", "Kosugi Maru", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Meiryo", system-ui, sans-serif';
   var MAX_NAME_LENGTH = 40;
   // 針のプルプル: 項目の境目が針を通るたびに弾かれ、すぐ減衰する
-  // 最後の境目は停止の0.7秒以上前に通る(offset>=0.15)ので、止まる瞬間には揺れが収まっている
+  // 弾いた揺れは約0.5秒で減衰する。最後の境目はじわじわ区間の途中で通るので、止まる頃には収まっている
   var KICK_DEG = 5;
   var KICK_DECAY_MS = 80;
   var KICK_PERIOD_MS = 160;
   var KICK_FULL_SPEED = 6;   // rad/s。これより遅いと弾く強さを弱める
   var KICK_MIN_RATIO = 0.3;
+  // 回転: 減速(MAIN)のあと、最後の境目の手前から「じわじわ」(CREEP)進んで止まる
+  var MAIN_MS_MIN = 3500, MAIN_MS_RANGE = 2000;
+  var CREEP_MS_MIN = 2200, CREEP_MS_RANGE = 1000;
+  var CREEP_LEAD_SEG = 0.5;                  // 最後の境目の何項目ぶん手前からじわじわ始めるか
+  var CREEP_LEAD_MIN = 15 * Math.PI / 180;   // 項目が多い時も、名前がいくつか通り過ぎるように
+  var CREEP_LEAD_MAX = 20 * Math.PI / 180;   // 項目が少なくて1項目が大きい時の上限
+  var CREEP_MAX = 50 * Math.PI / 180;        // じわじわ区間の最大角度(これ以上だと速く見える)
   // 中心の飾りと重ならないよう、盤の中の文字を上にずらす量(半径比)
   var OFF_CENTER_Y = 0.35;
 
@@ -300,8 +307,29 @@
     return candidates[randInt(candidates.length)];
   }
 
-  function easeOutQuart(t) {
-    return 1 - Math.pow(1 - t, 4);
+  // 回転の動き(経過ms → {x: 進んだ角度, v: 角速度 rad/s})を作る
+  // MAIN: easeOutQuart に一定速度を少し混ぜ、CREEP の初速とつなぐ
+  // CREEP: 距離 creep を easeOutQuad で進む(初速 2*creep/T から 0 へ)
+  function makeSpinCurve(delta, creep, mainMs, creepMs) {
+    var mainDist = delta - creep;
+    var mainS = mainMs / 1000;
+    var creepS = creepMs / 1000;
+    var vJoin = (2 * creep) / creepS;
+    var mix = Math.min(1, (vJoin * mainS) / mainDist);
+    return function (ms) {
+      if (ms < mainMs) {
+        var s = ms / mainMs;
+        return {
+          x: mainDist * ((1 - mix) * (1 - Math.pow(1 - s, 4)) + mix * s),
+          v: (mainDist * ((1 - mix) * 4 * Math.pow(1 - s, 3) + mix)) / mainS
+        };
+      }
+      var c = Math.min(1, (ms - mainMs) / creepMs);
+      return {
+        x: mainDist + creep * (1 - Math.pow(1 - c, 2)),
+        v: (2 * creep * (1 - c)) / creepS
+      };
+    };
   }
 
   // ---------- pointer ----------
@@ -348,7 +376,13 @@
     var turns = 5 + randInt(3);
     var from = rotation;
     var delta = turns * TWO_PI + normalize(target - from);
-    var duration = 4500 + randInt(2500);
+    // じわじわ区間: 最後の境目(当たりの項目に入る境目)の少し手前から
+    var creep = Math.min(CREEP_MAX, (1 - offset) * seg +
+      Math.max(CREEP_LEAD_MIN, Math.min(CREEP_LEAD_SEG * seg, CREEP_LEAD_MAX)));
+    var mainMs = MAIN_MS_MIN + randInt(MAIN_MS_RANGE);
+    var creepMs = CREEP_MS_MIN + randInt(CREEP_MS_RANGE);
+    var duration = mainMs + creepMs;
+    var curve = makeSpinCurve(delta, creep, mainMs, creepMs);
     var winnerEntry = state.entries[w];
 
     spinning = true;
@@ -359,16 +393,17 @@
     var lastIdx = indexAtPointer(n);
 
     function frame(now) {
-      var t = Math.min(1, (now - t0) / duration);
-      rotation = from + delta * easeOutQuart(t);
+      var ms = Math.min(duration, now - t0);
+      var p = curve(ms);
+      rotation = from + p.x;
       drawWheel();
       var idx = indexAtPointer(n);
       if (idx !== lastIdx) {
         lastIdx = idx;
         playTick();
-        kickPointer((delta * 4 * Math.pow(1 - t, 3)) / (duration / 1000)); // easeOutQuart の微分
+        kickPointer(p.v);
       }
-      if (t < 1) {
+      if (ms < duration) {
         requestAnimationFrame(frame);
       } else {
         rotation = normalize(rotation);
